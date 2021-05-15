@@ -2,7 +2,7 @@
 
 CLI tools for quickly exploring the direcory structure.
 
-## list_files.py
+## `list_files.py`
 
 A script that piggy bags on the output of `ls` by adding colors on top
 of it. It allows to gray out unimportant files and to associate some
