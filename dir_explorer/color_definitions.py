@@ -3,11 +3,10 @@
 Instructions on editing this file are provided in `README.md`.
 """
 
-# List of color codes:
-# https://tforgione.fr/posts/ansi-escape-codes/
+from typing import Callable
 
 
-def custom_color(x: int) -> str:
+def custom_color(x: int) -> Callable[[], str]:
     """Return an escape string for a color by it's number.
 
     param:
@@ -17,7 +16,7 @@ def custom_color(x: int) -> str:
     returns:
         Formatted escape sequence for a color
     """
-    return "38;5;" + str(x) + "m"
+    return lambda: "38;5;" + str(x) + "m"
 
 
 color_definitions = {
