@@ -1,0 +1,28 @@
+#!/bin/bash
+
+
+# Create a temp file
+export tempfile="/tmp/list_view_$RANDOM"
+
+# Call the python script
+script_dir=`dirname "$0"`
+"${script_dir}/../venv/bin/python3" "${script_dir}/list_view.py" "$@"
+
+# Capture the output
+if [[ -f "$tempfile" ]]; then
+  OUTPUT=$(cat $tempfile)
+  echo "$OUTPUT"
+
+  # Clean up the temp file
+  rm $tempfile
+  unset tempfile
+
+fi
+
+if [[ -d "$OUTPUT" ]]; then
+  # If script returned a folder, open it
+  cd "$OUTPUT" || return
+elif [[ -f "$OUTPUT" ]]; then
+  # Else, open the file in the default editor
+  eval "${EDITOR:-vi}" "$OUTPUT"
+fi
