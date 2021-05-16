@@ -1,3 +1,5 @@
+"""Show files in a directory in a list view."""
+
 import os
 import sys
 import curses
@@ -15,6 +17,8 @@ home_directory = os.path.expanduser("~")
 
 
 class Action(Enum):
+    """ENUM of actions a user can take."""
+
     UP = "UP"
     DOWN = "DOWN"
     LEFT = "LEFT"
@@ -28,7 +32,7 @@ class Action(Enum):
     DEFAULT = "DEFAULT"
 
 
-map_keys: Dict[str, str] = {
+map_keys: Dict[int, Action] = {
     curses.KEY_UP: Action.UP,
     curses.KEY_DOWN: Action.DOWN,
     curses.KEY_LEFT: Action.LEFT,
@@ -65,12 +69,25 @@ map_keys: Dict[str, str] = {
 
 
 class ItemProps(TypedDict):
+    """File properties."""
+
     is_dir: bool
 
 
 def get_items(path: str) -> List[Tuple[str, ItemProps]]:
+    """Get a list of files and folders.
+
+    param:
+        path: The path to search in
+
+    returns:
+        List of files and folders
+    """
     items = [
-        (item, dict(is_dir=os.path.isdir(os.path.join(path, item))))
+        (
+            item,
+            ItemProps(is_dir=os.path.isdir(os.path.join(path, item))),
+        )
         for item in os.listdir(path)
     ]
 
@@ -85,6 +102,17 @@ def trim_string(
     max_length: int,
     trim_back: bool,
 ) -> str:
+    """Trip a string to fit in viewport.
+
+    param:
+        string: The string to trim
+        limit: The available screen estate (horizontal)
+        max_length: The length of the longest file name in a directory
+        trim_back: Whether to trim the end or the beginning of the string
+
+    return:
+        Trimmed string
+    """
     if len(string) > limit:
         if trim_back:
             return string[0 : limit - 1] + "…"
@@ -101,8 +129,17 @@ def display_path(
     selected: int,
     height_limit: int,
     width_limit: int,
-):
+) -> None:
+    """Render a list of files and directories.
 
+    param:
+        stdscr: Window object
+        items: Directory's contents
+        path: Directory path
+        selected: Index of selected item
+        height_limit: Height of the screen
+        width_limit: Width of the screen
+    """
     relative_path = (
         "~{}".format(path[len(home_directory) :])
         if path.startswith(home_directory)
@@ -154,15 +191,24 @@ def display_path(
         )
 
 
-def terminate_curses(stdscr):
+def terminate_curses(stdscr) -> None:
+    """Reset terminal's state back to normal.
+
+    param:
+        stdscr: Window object
+    """
     curses.nocbreak()
     curses.echo()
     curses.endwin()
     stdscr.keypad(False)
 
 
-def config(stdscr):
+def config(stdscr) -> None:
+    """Configure the terminal for curses.
 
+    param:
+        stdscr: Window object
+    """
     curses.noecho()
     curses.cbreak()
     curses.start_color()
@@ -176,7 +222,12 @@ def config(stdscr):
     curses.init_pair(2, curses.COLOR_CYAN, curses.COLOR_BLACK)  # folder
 
 
-def open_file(file):
+def open_file(file) -> None:
+    """Open a file using default program.
+
+    param:
+        file: Path to a file
+    """
     if platform.system() == "Darwin":  # macOS
         subprocess.call(("open", file))
     elif platform.system() == "Windows":  # Windows
@@ -185,13 +236,24 @@ def open_file(file):
         subprocess.call(("xdg-open", file))
 
 
-def menu(
+def main(
     stdscr,
     path: str,
     index_stack: List[Tuple[str, int]] = None,
     stack_position: int = 0,
 ) -> None:
+    """Begin the main loop of the program.
 
+    Listens for keys and manages the stack of directories.
+
+    param:
+        stdscr: Window object
+        path: Initial path
+        index_stack:
+            The visited directories and the index of the selected item in each
+        stack_position:
+            Current position in the index_stack
+    """
     height_limit, width_limit = stdscr.getmaxyx()
     stdscr.clear()
 
@@ -265,7 +327,7 @@ def menu(
 
         # Redraw the screen on terminal window resize
         if action == Action.REDRAW:
-            return menu(
+            return main(
                 stdscr,
                 path,
                 index_stack,
@@ -279,7 +341,7 @@ def menu(
             index += 1
 
         elif action == Action.LEFT:
-            return menu(
+            return main(
                 stdscr,
                 os.path.abspath(os.path.join(path, os.pardir)),
                 index_stack,
@@ -299,7 +361,7 @@ def menu(
         ):
             full_path = os.path.join(path, item[0])
             if item[1]["is_dir"] and action == Action.RIGHT:
-                return menu(
+                return main(
                     stdscr, full_path, index_stack, stack_position + 1
                 )
             elif not item[1]["is_dir"] and (
@@ -315,13 +377,19 @@ def menu(
             ):
                 open_file(full_path)
             else:
+                # Write the result to a tempfile for the bash script to work
+                # with
                 with open(os.environ["tempfile"], "w") as file:
                     file.write(full_path)
             return
 
 
-def main():
+def entrypoint() -> None:
+    """Program's entrypoint.
 
+    raises:
+        Exception: if "tempfile" environmental variable is not set
+    """
     if "tempfile" not in os.environ:
         raise Exception('"tempfile" environmental variable is not set')
 
@@ -329,10 +397,10 @@ def main():
     try:
         config(stdscr)
         current_dir = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
-        menu(stdscr, current_dir)
+        main(stdscr, current_dir)
     finally:
         terminate_curses(stdscr)
 
 
 if __name__ == "__main__":
-    main()
+    entrypoint()
