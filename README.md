@@ -83,14 +83,12 @@ Run pip install:
 ./venv/bin/pip install -r requirements.txt
 ```
 
-Then, add this to your .zshrc file:
+Then, add the `f` bash function that is defined in
+`./dir_explorer/list_view` to your `~/.zshrc`. Alternativelly, you can
+source that file directly.
 
-```bash
-alias f="/bin/zsh ~/path/to/dir_explorer/dir_explorer/list_view"
-```
-
-Remember to change `~/path/to/dir_explorer/` to an actual path and `/bin/zsh` to
-your preferred shell.
+Don't forget to change the `script_dir` variable to the location of
+`./dir_explorer/list_view`
 
 ### Running
 

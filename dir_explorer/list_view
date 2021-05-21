@@ -1,28 +1,34 @@
 #!/bin/bash
 
 
-# Create a temp file
-export tempfile="/tmp/list_view_$RANDOM"
+f(){
+  script_dir="/Users/maxxxxxdlp/site/python/dir_explorer/dir_explorer"
 
-# Call the python script
-script_dir=`dirname "$0"`
-"${script_dir}/../venv/bin/python3" "${script_dir}/list_view.py" "$@"
+  # Create a temp file
+  export tempfile="/tmp/list_view_$RANDOM"
 
-# Capture the output
-if [[ -f "$tempfile" ]]; then
-  OUTPUT=$(cat $tempfile)
-  echo "$OUTPUT"
+  # Call the python script
+  "${script_dir}/../venv/bin/python3" "${script_dir}/list_view.py" "$@"
 
-  # Clean up the temp file
-  rm $tempfile
-  unset tempfile
+  # Capture the output
+  if [[ -f "$tempfile" ]]; then
+    OUTPUT=($(cat $tempfile))
+    # Clean up the temp file
+    rm $tempfile
+    unset tempfile
 
-fi
+  fi
 
-if [[ -d "$OUTPUT" ]]; then
-  # If script returned a folder, open it
-  cd "$OUTPUT" || return
-elif [[ -f "$OUTPUT" ]]; then
-  # Else, open the file in the default editor
-  eval "${EDITOR:-vi}" "$OUTPUT"
-fi
+  echo "${OUTPUT[1]}/${OUTPUT[2]}"
+  cd "${OUTPUT[1]}"
+
+  # Call the list_files.py command defined earlier
+  l
+
+  # If script returned a file name
+  if [[ -f "${OUTPUT[1]}/${OUTPUT[2]}" ]]; then
+    # Open the file in the default editor
+    eval "${EDITOR:-vi}" "${OUTPUT[2]}"
+  fi
+
+}

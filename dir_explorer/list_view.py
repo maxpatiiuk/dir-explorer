@@ -5,6 +5,7 @@ import sys
 import curses
 import platform
 import subprocess
+import signal
 import json
 from enum import Enum
 from typing import List, Tuple, TypedDict, Dict
@@ -14,6 +15,7 @@ DEBUG = False
 
 # DEFINITIONS
 home_directory = os.path.expanduser("~")
+menu_size = 40
 
 
 class Action(Enum):
@@ -77,10 +79,10 @@ class ItemProps(TypedDict):
 def get_items(path: str) -> List[Tuple[str, ItemProps]]:
     """Get a list of files and folders.
 
-    param:
+    Args:
         path: The path to search in
 
-    returns:
+    Returns:
         List of files and folders
     """
     items = [
@@ -104,13 +106,13 @@ def trim_string(
 ) -> str:
     """Trip a string to fit in viewport.
 
-    param:
+    Args:
         string: The string to trim
         limit: The available screen estate (horizontal)
         max_length: The length of the longest file name in a directory
         trim_back: Whether to trim the end or the beginning of the string
 
-    return:
+    Returns:
         Trimmed string
     """
     if len(string) > limit:
@@ -132,7 +134,7 @@ def display_path(
 ) -> None:
     """Render a list of files and directories.
 
-    param:
+    Args:
         stdscr: Window object
         items: Directory's contents
         path: Directory path
@@ -147,7 +149,13 @@ def display_path(
     )
 
     max_length = max(
-        [len(item) for item, item_props in [*items, (path, {})]]
+        menu_size,
+        max(
+            [
+                len(item)
+                for item, item_props in [*items, (relative_path, {})]
+            ]
+        ),
     )
 
     stdscr.addstr(
@@ -194,7 +202,7 @@ def display_path(
 def terminate_curses(stdscr) -> None:
     """Reset terminal's state back to normal.
 
-    param:
+    Args:
         stdscr: Window object
     """
     curses.nocbreak()
@@ -206,7 +214,7 @@ def terminate_curses(stdscr) -> None:
 def config(stdscr) -> None:
     """Configure the terminal for curses.
 
-    param:
+    Args:
         stdscr: Window object
     """
     curses.noecho()
@@ -246,7 +254,7 @@ def main(
 
     Listens for keys and manages the stack of directories.
 
-    param:
+    Args:
         stdscr: Window object
         path: Initial path
         index_stack:
@@ -380,7 +388,10 @@ def main(
                 # Write the result to a tempfile for the bash script to work
                 # with
                 with open(os.environ["tempfile"], "w") as file:
-                    file.write(full_path)
+                    if item[1]["is_dir"]:
+                        file.write(full_path)
+                    else:
+                        file.write(f"{path}\n{item[0]}")
             return
 
 
@@ -392,6 +403,8 @@ def entrypoint() -> None:
     """
     if "tempfile" not in os.environ:
         raise Exception('"tempfile" environmental variable is not set')
+
+    signal.signal(signal.SIGINT, lambda _, __: terminate_curses(stdscr))
 
     stdscr = curses.initscr()
     try:
