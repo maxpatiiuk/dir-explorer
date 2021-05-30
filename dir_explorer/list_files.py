@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Add colors to the output of the `ls` command.
 
 For usage examples, see `README.md`.
@@ -6,14 +7,27 @@ For usage examples, see `README.md`.
 import re
 import subprocess
 import sys
+import platform
 
 from colorize_name import colorize_filename
 
 
 # CONFIG
-# your "ls" command
-ls = "CLICOLOR_FORCE=1 ls -GahlFT%"
-# regex that separates file's metadata and file's name
+# Your "ls" command
+ls = (
+    "ls "
+    "--color "
+    "--group-directories-first "
+    "-ahl "
+    '--time-style="+%b %e%H:%M:%S %Y" '
+    "--sort=version"
+)
+if platform.system() == "Darwin":
+    # Custom ls command when on macOS
+    ls = f"g{ls}"
+# This regex is used to find the beginning of the file name in the
+# output "ls" produces. Currently it is set to expect "ls" to output a
+# year number just before the file name
 regex = r"20\d\d "
 
 

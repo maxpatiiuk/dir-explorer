@@ -2,7 +2,7 @@
 
 
 f(){
-  script_dir="/Users/maxxxxxdlp/site/python/dir_explorer/dir_explorer"
+  script_dir="${HOME}/site/python/dir_explorer/dir_explorer"
 
   # Create a temp file
   export tempfile="/tmp/list_view_$RANDOM"

@@ -2,8 +2,7 @@
 
 CLI tools for quickly exploring the directory structure.
 
-They were tested to work on macOS with ZSH and may work on other Unix/Linux
-systems with slight modifications.
+They were tested to work on macOS and Ubuntu in ZSH.
 
 ## `list_files.py`
 
@@ -25,11 +24,19 @@ have the flags necessary to output the files in the long format.
 
 ### Installation
 
-Add this to your .bashrc/.zshrc file:
+This tool does not have any dependencies.
+
+The only think you would want to do is to add this to your
+.bashrc/.zshrc file:
 
 ```bash
 alias l="python3 ~/path/to/dir_explorer/dir_explorer/list_files.py"
 ```
+
+Additionally, you could customize the `ls` variable in
+`dir_explorer/list_files.py` to customize the default arguments that
+get passed to the `ls` command. By default, it calls `ls` command on
+Linux and `gls` on macOS.
 
 Remember to change `~/path/to/dir_explorer/` to an actual path.
 
@@ -97,8 +104,8 @@ view.
 
 Controls:
 
-* `Up / Down Arrow` - navigate Up / Down
-* `Left / Right Arrow` - open parent / child directory
+- `Up / Down Arrow` - navigate Up / Down
+- `Left / Right Arrow` - open parent / child directory
 
 Instead of the arrow keys, you can also use `WSAD` or `HJKL`.
 
