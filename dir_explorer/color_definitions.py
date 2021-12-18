@@ -81,6 +81,7 @@ known_file_extensions = {
     "htm": "green",
     "html": "green",
     "js": custom_color(208),  # orange
+    "mjs": custom_color(202),  # dark orange
     "jsx": custom_color(202),  # dark orange
     "md": custom_color(200),  # purple
     "py": custom_color(119),  # pale green
