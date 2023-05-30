@@ -70,6 +70,8 @@ known_file_extensions = {
     "msi": "yellow",
     # source text
     "csv": "blue",
+    "tsv": "blue",
+    "psv": "blue",
     "json": "blue",
     "txt": "blue",
     "xml": "blue",
