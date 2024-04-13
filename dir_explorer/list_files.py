@@ -25,10 +25,6 @@ ls = (
 if platform.system() == "Darwin":
     # Custom ls command when on macOS
     ls = f"g{ls}"
-# This regex is used to find the beginning of the file name in the
-# output "ls" produces. Currently it is set to expect "ls" to output a
-# year number just before the file name
-regex = r"20\d\d "
 
 
 result = ""
@@ -40,21 +36,24 @@ try:
 except subprocess.CalledProcessError:
     exit(1)
 
+lines = result.rstrip().split(b"\n")
+# last consistent space between lines:
+# exclude the first line as it just shows the size
+last_space = max([line.rfind(b" ") for line in lines[1:]])
 
-for raw_line in result.rstrip().split(b"\n"):
+for raw_line in lines:
     line = raw_line.decode("utf-8")
-    match = re.search(regex, line)
 
-    if not match:
+    meta_part = line[:last_space]
+    filename_part = line[last_space:]
+
+    if not filename_part:
         print(line)
         continue
 
-    filename_begin = match.span()[1]
-    meta_part = line[:filename_begin]
-    filename_part = line[filename_begin:]
-
     # links, executables and etc
-    if ord(filename_part[0]) == 27 and not line.startswith("d"):
+    is_non_white = ord(filename_part[0]) == 27
+    if is_non_white and not line.startswith("d"):
         meta_part = f"{meta_part[:-1]}\x1b[0m▸"
 
     # non-executable files
