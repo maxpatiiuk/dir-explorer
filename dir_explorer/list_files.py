@@ -19,7 +19,7 @@ ls = (
     "--color "
     "--group-directories-first "
     "-ahl "
-    '--time-style="+%b %e%H:%M:%S %Y" '
+    '--time-style=long-iso '
     "--sort=version"
 )
 if platform.system() == "Darwin":
