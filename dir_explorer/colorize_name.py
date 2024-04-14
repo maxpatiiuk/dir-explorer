@@ -70,6 +70,7 @@ def colorize_filename(filename: str) -> str:
             ) in known_file_extension_endings.items():
                 if lower_file_extension.endswith(file_extension_ending):
                     match = color
+                    break
 
         if match:
             return (

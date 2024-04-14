@@ -50,7 +50,7 @@ for group in groups:
                 spaces[index] += 1
 
     # take the last consistent space between the lines:
-    last_space = sorted(spaces.items(), key=lambda x: (-x[1], -x[0]))[0][0]
+    last_space = sorted(spaces.items(), key=lambda x: (-x[1], -x[0]))[0][0] + 1
 
     for raw_line in lines:
         line = raw_line.decode("utf-8")
@@ -62,7 +62,7 @@ for group in groups:
             print(line)
             continue
 
-        # links, executables and etc
+        # don't colorize directories, links, executables and other special files
         is_non_white = ord(filename_part[0]) == 27
         if is_non_white and not line.startswith("d"):
             meta_part = f"{meta_part[:-1]}\x1b[0m▸"
