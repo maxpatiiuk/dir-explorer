@@ -45,27 +45,32 @@ def colorize_filename(filename: str) -> str:
     returns:
         File name string with color escape sequences
     """
-    file_extension_location = filename.rfind(".")
     if filename in known_file_names:
         return (
             f"{resolve_color(known_file_names[filename])}"
             f"{filename}"
             f"\x1B[0m"
         )
-    elif file_extension_location != -1:
+
+    file_extension_location = filename.rfind(".")
+    if file_extension_location != -1:
         file_extension = filename[file_extension_location + 1 :]
+        lower_file_extension = file_extension.lower()
+
         match = (
-            known_file_extensions[file_extension]
-            if file_extension in known_file_extensions
+            known_file_extensions[lower_file_extension]
+            if lower_file_extension in known_file_extensions
             else None
         )
+
         if not match:
             for (
                 file_extension_ending,
                 color,
             ) in known_file_extension_endings.items():
-                if file_extension.endswith(file_extension_ending):
+                if lower_file_extension.endswith(file_extension_ending):
                     match = color
+
         if match:
             return (
                 f"{filename[0:file_extension_location]}"
