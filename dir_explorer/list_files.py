@@ -44,7 +44,8 @@ for group in groups:
     # take note of how many spaces occur at what index
     lines = group.split(b"\n")
     spaces = defaultdict(int)
-    for line in lines[2:]:
+    from_index = 0 if len(lines) < 3 else 2
+    for line in lines[from_index:]:
         for index, char in enumerate(line):
             if char == ord(" "):
                 spaces[index] += 1
