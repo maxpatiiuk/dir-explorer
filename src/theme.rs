@@ -1,10 +1,31 @@
 use std::collections::HashMap;
 
+pub const BLACK_HOLE_DIRECTORY_NAMES: &[&str] = &[
+    ".git",
+    "node_modules",
+    "venv",
+    ".venv",
+    "target",
+    "dist",
+    "build",
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".next",
+    ".nuxt",
+    ".cache",
+];
+
+pub fn is_black_hole_dir_name(name: &str) -> bool {
+    BLACK_HOLE_DIRECTORY_NAMES.contains(&name)
+}
+
 pub struct Theme {
     pub color_definitions: HashMap<&'static str, &'static str>,
     pub known_file_extensions: HashMap<&'static str, &'static str>,
     pub known_file_extension_endings: HashMap<&'static str, &'static str>,
     pub known_file_names: HashMap<&'static str, &'static str>,
+    pub known_directory_names: HashMap<&'static str, &'static str>,
 }
 
 pub fn default_theme() -> Theme {
@@ -20,6 +41,7 @@ pub fn default_theme() -> Theme {
     color_definitions.insert("dirty-green", "119");
     color_definitions.insert("dirty-pink", "132");
     color_definitions.insert("pink", "125");
+    color_definitions.insert("accent", "81");
 
     let mut known_file_extensions = HashMap::new();
     // ignored / auto-generated
@@ -132,12 +154,14 @@ pub fn default_theme() -> Theme {
     known_file_extensions.insert("tsx", "81"); // dirty blue
     known_file_extensions.insert("sql", "94"); // dirty yellow
     known_file_extensions.insert("vue", "94"); // dirty yellow
+    known_file_extensions.insert("rs", "pink");
+    known_file_extensions.insert("go", "81"); // dirty blue
 
     // images
     // dirty color for less preferred formats
     known_file_extensions.insert("jpg", "dirty-pink");
     known_file_extensions.insert("jpeg", "dirty-pink");
-    known_file_extensions.insert("svg", "dirty-pink");
+    known_file_extensions.insert("svg", "pink");
     known_file_extensions.insert("png", "dirty-pink");
     known_file_extensions.insert("gif", "dirty-pink");
     known_file_extensions.insert("bmp", "dirty-pink");
@@ -277,11 +301,23 @@ pub fn default_theme() -> Theme {
     known_file_names.insert("pre-commit", "red");
     known_file_names.insert("pre-push", "red");
 
+    let mut known_directory_names = HashMap::new();
+    // unimportant / noisy
+    for name in BLACK_HOLE_DIRECTORY_NAMES {
+        known_directory_names.insert(*name, "gray");
+    }
+
+    // important
+    known_directory_names.insert("src", "accent");
+    known_directory_names.insert("scripts", "accent");
+    known_directory_names.insert("packages", "accent");
+
     Theme {
         color_definitions,
         known_file_extensions,
         known_file_extension_endings,
         known_file_names,
+        known_directory_names,
     }
 }
 

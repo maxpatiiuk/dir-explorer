@@ -8,9 +8,17 @@ where
 {
     let mut options = Options::default();
     let mut paths: Vec<PathBuf> = Vec::new();
+    let mut args = args.into_iter().skip(1);
 
-    for arg in args.into_iter().skip(1) {
-        if arg == "--help" || arg == "-?" {
+    while let Some(arg) = args.next() {
+        if arg == "--" {
+            for path in args {
+                paths.push(PathBuf::from(path));
+            }
+            break;
+        }
+
+        if arg == "--help" || arg == "-h" {
             return Err(help_text());
         }
 
@@ -89,7 +97,7 @@ pub fn help_text() -> String {
         "Flags:",
         "  -a                show all entries including . and ..",
         "  -A                show almost all entries (default)",
-        "  -l                detailed mode: mode links owner group size time name",
+        "  -l                detailed mode: mode owner group size time name",
         "  -0                compact mode: only names",
         "  -H                show raw bytes instead of human-readable sizes",
         "  -r, --reverse     reverse final sort order",
@@ -97,13 +105,16 @@ pub fn help_text() -> String {
         "  -t                sort by modified time",
         "      --sort=...    version|name|time|size|extension",
         "      --color=...   always|auto|never",
-        "      --help        show this help",
+        "      --            end options; treat remaining args as paths",
+        "  -h, --help       show this help",
     ]
     .join("\n")
 }
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::parse_args;
     use crate::model::{SortMode, ViewMode};
 
@@ -123,5 +134,24 @@ mod tests {
     fn parses_time_sort() {
         let options = parse_args(["l".into(), "-t".into()]).unwrap();
         assert_eq!(options.sort_mode, SortMode::Time);
+    }
+
+    #[test]
+    fn parses_short_help_h() {
+        let result = parse_args(["l".into(), "-h".into()]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Usage:"));
+    }
+
+    #[test]
+    fn accepts_double_dash_with_no_paths() {
+        let options = parse_args(["l".into(), "--".into()]).unwrap();
+        assert_eq!(options.paths, vec![PathBuf::from(".")]);
+    }
+
+    #[test]
+    fn treats_args_after_double_dash_as_paths() {
+        let options = parse_args(["l".into(), "--".into(), "-name".into()]).unwrap();
+        assert_eq!(options.paths, vec![PathBuf::from("-name")]);
     }
 }

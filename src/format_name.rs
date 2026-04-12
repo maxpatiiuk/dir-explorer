@@ -26,6 +26,7 @@ pub fn colorized_name(entry: &Entry, use_color: bool) -> String {
         .symlink_target
         .as_ref()
         .map(|target| escaped_name(&format_target_path(target)));
+    let theme = default_theme();
 
     if !use_color {
         return if let Some(target) = target {
@@ -37,7 +38,18 @@ pub fn colorized_name(entry: &Entry, use_color: bool) -> String {
 
     if let Some(target) = target {
         let name = match entry.kind {
-            FileKind::Symlink | FileKind::BrokenSymlink => colorize_regular_file(&escaped),
+            FileKind::Symlink if entry.groups_with_directories => {
+                colorize_directory_name(&theme, &escaped, entry.color_override.as_deref())
+            }
+            FileKind::Symlink => colorize_regular_file(&theme, &escaped),
+            FileKind::BrokenSymlink => {
+                let color = color_for_kind(FileKind::BrokenSymlink);
+                if color.is_empty() {
+                    escaped
+                } else {
+                    format!("{color}{escaped}{RESET}")
+                }
+            }
             _ => {
                 let color = color_for_kind(entry.kind);
                 if color.is_empty() {
@@ -51,7 +63,10 @@ pub fn colorized_name(entry: &Entry, use_color: bool) -> String {
     }
 
     match entry.kind {
-        FileKind::Regular => colorize_regular_file(&escaped),
+        FileKind::Regular => colorize_regular_file(&theme, &escaped),
+        FileKind::Directory => {
+            colorize_directory_name(&theme, &escaped, entry.color_override.as_deref())
+        }
         other => {
             let color = color_for_kind(other);
             if color.is_empty() {
@@ -83,9 +98,7 @@ fn format_target_path_with_home(path: &Path, home: Option<&Path>) -> String {
     path.to_string_lossy().into_owned()
 }
 
-fn colorize_regular_file(name: &str) -> String {
-    let theme = default_theme();
-
+fn colorize_regular_file(theme: &crate::theme::Theme, name: &str) -> String {
     if let Some(color_key) = theme.known_file_names.get(name) {
         let color = resolve_color_code(&theme, color_key);
         if !color.is_empty() {
@@ -120,6 +133,33 @@ fn colorize_regular_file(name: &str) -> String {
     name.to_string()
 }
 
+fn colorize_directory_name(
+    theme: &crate::theme::Theme,
+    name: &str,
+    override_color_key: Option<&str>,
+) -> String {
+    if let Some(key) = override_color_key {
+        let color = resolve_color_code(theme, key);
+        if !color.is_empty() {
+            return format!("{color}{name}{RESET}");
+        }
+    }
+
+    if let Some(color_key) = theme.known_directory_names.get(name) {
+        let color = resolve_color_code(theme, color_key);
+        if !color.is_empty() {
+            return format!("{color}{name}{RESET}");
+        }
+    }
+
+    let color = color_for_kind(FileKind::Directory);
+    if color.is_empty() {
+        name.to_string()
+    } else {
+        format!("{color}{name}{RESET}")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::{Path, PathBuf};
@@ -150,8 +190,8 @@ mod tests {
             name: "link".to_string(),
             kind: FileKind::Symlink,
             groups_with_directories: false,
+            color_override: None,
             mode: 0,
-            nlink: 1,
             uid: 0,
             gid: 0,
             size: 0,
@@ -170,8 +210,8 @@ mod tests {
             name: "notes.md".to_string(),
             kind: FileKind::Symlink,
             groups_with_directories: false,
+            color_override: None,
             mode: 0,
-            nlink: 1,
             uid: 0,
             gid: 0,
             size: 0,
@@ -182,5 +222,46 @@ mod tests {
         let rendered = colorized_name(&entry, true);
         assert!(!rendered.contains("\x1b[35m"));
         assert!(rendered.contains("\x1b[38;5;200m"));
+    }
+
+    #[test]
+    fn directory_symlink_uses_directory_coloring() {
+        let entry = Entry {
+            path: PathBuf::from("etc"),
+            name: "etc".to_string(),
+            kind: FileKind::Symlink,
+            groups_with_directories: true,
+            color_override: None,
+            mode: 0,
+            uid: 0,
+            gid: 0,
+            size: 0,
+            modified: UNIX_EPOCH,
+            symlink_target: Some(PathBuf::from("private/etc")),
+        };
+
+        let rendered = colorized_name(&entry, true);
+        assert!(rendered.contains("\x1b[34m"));
+        assert!(!rendered.contains("\x1b[35m"));
+    }
+
+    #[test]
+    fn directory_uses_theme_override_color_when_present() {
+        let entry = Entry {
+            path: PathBuf::from("src"),
+            name: "src".to_string(),
+            kind: FileKind::Directory,
+            groups_with_directories: true,
+            color_override: None,
+            mode: 0,
+            uid: 0,
+            gid: 0,
+            size: 0,
+            modified: UNIX_EPOCH,
+            symlink_target: None,
+        };
+
+        let rendered = colorized_name(&entry, true);
+        assert!(rendered.contains("\x1b[38;5;81m"));
     }
 }
