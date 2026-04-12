@@ -55,35 +55,36 @@ The Rust version should preserve those four things.
 Running the tool with no flags should behave roughly like:
 
 - almost-all mode (`-A` semantics, not `-a`)
-- long listing
 - human-readable sizes
 - long ISO timestamp
 - version-aware sorting
 - directories grouped first
 - colors enabled by default
-- compact long output: no user, no group, no link count by default
 - no `total` row
 
 Suggested mental model:
 
-> “GNU `ls` long mode, but quieter, colored more intentionally, and implemented directly.”
+> “A quieter, faster `ls` with good defaults and custom filename coloring.”
 
 ### Default visible columns
 
-Default long row should likely be:
+Default row should be:
 
-- file type / permission summary (condensed)
 - size
 - timestamp
 - colored filename
 
-By default, omit:
+Do **not** show file type or permission summary by default.
 
-- owner
-- group
-- hard link count
+Rationale:
 
-And provide one opt-in flag to restore the full classic long metadata block.
+- the important practical distinctions are already covered by colors for directories, symlinks, and executables
+- removing the mode column makes the default view lighter and faster to scan
+- permissions matter mostly when explicitly debugging permissions, which fits `-l`
+
+Add a short mode for later aliasing:
+
+- `-0` = name-focused compact mode with no size and no timestamp
 
 ---
 
@@ -94,31 +95,28 @@ And provide one opt-in flag to restore the full classic long metadata block.
 - `-a` = show all, including `.` and `..`
 - `-A` = show almost all
 - `-l` = long view
-- `-h` = human-readable sizes
-- `-H` or `--bytes` = disable human-readable formatting and print raw size
+- `-0` = omit size and timestamp
+- `-H` = disable human-readable formatting and print raw size
 - `-r` / `--reverse`
 - `-t` = sort by modified time
 - `--sort=version|name|time|size|extension`
 - `-R` / `--recursive`
 - `--color=always|auto|never`
-- `--time-style=long-iso|iso|relative` (even if only `long-iso` is initially implemented)
 
 ### Opinionated defaults
 
 - default sort: `version`
 - default grouping: directories first
 - default visibility: `almost all`
-- default time style: `long-iso`
+- timestamp style: always `long-iso`
 - default size style: human-readable
 - default color: `auto` unless disabled via env var
 
-### Add one “classic long” escape hatch
+### Define `-l` as the detailed mode
 
-Add a single flag that restores the noisy `ls -l` style metadata, for example:
+Instead of a separate classic flag, let `-l` be the detailed mode.
 
-- `--classic-long`
-
-That mode would show:
+`-l` should show:
 
 - permissions
 - link count
@@ -128,7 +126,13 @@ That mode would show:
 - timestamp
 - name
 
-For permissions, prefer octal if you want the compact mode to stay consistent, but for classic mode it may still be worth supporting symbolic permissions too.
+For permissions, use **octal without a leading `0`**.
+
+Example:
+
+- `755` instead of `0755`
+
+This keeps the detailed mode compact while still being more immediately useful than symbolic permissions for common shell work.
 
 ---
 
@@ -141,7 +145,7 @@ The Python note about putting filenames first is correct: it is probably worse f
 Recommended decision:
 
 - keep metadata first
-- dim metadata
+- dim metadata when metadata is shown
 - keep filename last and visually prominent
 
 That preserves alignment and makes long filenames harmless.
@@ -152,33 +156,36 @@ Do not emulate the Python spacer-detection trick. In Rust, compute columns direc
 
 Recommended long row layout:
 
-`[perm/type?] [size] [time] [name]`
+Default mode:
+
+`[size] [time] [name]`
 
 Where:
 
-- `[perm/type?]` is compact and dim
 - `[size]` is right-aligned and dim
 - `[time]` is dim
 - `[name]` contains the main colors
 
-Optional full mode:
+`-l` mode:
 
-`[mode] [links] [owner] [group] [size] [time] [name]`
+`[octal_mode] [links] [owner] [group] [size] [time] [name]`
+
+`-0` mode:
+
+`[name]`
 
 ### 3. No `total` line
 
 Keep omitting the `total` line by default.
 
-### 4. Preserve arrow / special marker only if it still helps
+### 4. Do not include the arrow marker
 
-The current wrapper adds `▸` to some non-regular entries after dimmed metadata. That is a post-processing artifact from piggybacking on `ls` output.
-
-For the Rust version, treat this as optional, not required.
+Do not carry over the `▸` marker.
 
 Recommendation:
 
-- skip `▸` in v1 unless it clearly improves scanability
-- rely on color + file type styling instead
+- no extra marker in any mode
+- rely on color and optional `-l` metadata instead
 
 ---
 
@@ -186,22 +193,69 @@ Recommendation:
 
 The Rust implementation should classify entries explicitly instead of relying on `ls` colors.
 
-At minimum support these file kinds:
+At minimum, classify these file kinds:
 
 - regular file
+- executable regular file
 - directory
 - symlink
-- pipe / FIFO
-- socket
-- block device
-- character device
-- executable regular file
 - broken symlink
-- other / unknown special
 
-Nice to have:
+Only classify edge-case Unix kinds when they are a trivial byproduct of already-collected metadata.
 
-- mount point detection
+Policy:
+
+- do not add separate syscalls just to distinguish edge-case file kinds
+- if one metadata read already exposes kind bits, use them
+- otherwise fold into `other / unknown special`
+
+### Which kinds matter most in practice
+
+If the goal is a simpler and faster v1, the most valuable distinctions are:
+
+1. `directory`
+   - why care: navigation target; should sort first and have strong color
+2. `symlink`
+   - why care: may point elsewhere, may be broken, and should usually render with `name -> target`
+3. `broken symlink`
+   - why care: likely actionable problem; deserves distinct styling
+4. `executable regular file`
+   - why care: permission bit changes behavior directly; color replaces the need to always show mode bits
+5. `regular file`
+   - why care: gets custom extension/name coloring
+
+These five kinds cover almost all day-to-day use.
+
+The rest are edge-case Unix kinds:
+
+- `pipe / FIFO`
+  - why care: usually indicates shell plumbing or IPC; rare in normal project trees
+- `socket`
+  - why care: often indicates a live service or local IPC endpoint
+- `block device`
+  - why care: important in system directories, rarely relevant in normal repo browsing
+- `character device`
+  - why care: same as above; mostly system-facing
+- `other / unknown special`
+  - why care: defensive fallback so weird files still render safely
+
+Implementation rule for these kinds:
+
+- include them only when available from the same metadata used for regular file-kind detection
+- no additional per-entry syscall round-trips for deeper classification
+
+### Simpler implementation recommendation
+
+For v1, fully optimize for these paths:
+
+- regular file
+- executable regular file
+- directory
+- symlink / broken symlink
+
+Then detect other Unix special kinds correctly but keep their rendering minimal.
+
+That gives correct behavior without spending disproportionate effort on rare file types.
 
 Notes:
 
@@ -257,10 +311,10 @@ This is one of the clearest design requirements for the rewrite.
 Recommended approach:
 
 - keep a built-in default theme in Rust
-- support loading an external config later
-- initially port `color_definitions.py` into a Rust config module rather than inventing a new format immediately
+- port `color_definitions.py` into a Rust config module
+- do not support external theme config
 
-Do **not** block v1 on designing a perfect external theme format.
+This keeps the rewrite smaller and avoids spending time on config parsing rather than rendering behavior.
 
 ---
 
@@ -347,6 +401,11 @@ Recommended v1 decisions:
 - do not follow symlinked directories by default
 - when multiple roots are passed, print a labeled block per root
 
+This matches your desired behavior:
+
+- `--recursive` still shows long metadata when `-l` is enabled
+- recursive traversal must not recurse into symlinks
+
 ---
 
 ## Multi-path and glob behavior
@@ -381,18 +440,20 @@ This keeps file mode handling, device detection, and terminal behavior straightf
 
 ## Proposed Rust architecture
 
-Recommended crate/module split:
+Recommended file/module split in this same folder:
 
 - `main.rs` — CLI parsing and top-level execution
 - `cli.rs` — flags, defaults, option normalization
 - `fs.rs` — reading directories, metadata collection, symlink handling
 - `model.rs` — `Entry`, `FileKind`, `RenderOptions`, `SortMode`
 - `sort.rs` — comparators and grouping
-- `theme.rs` — palette + file match rules
+- `theme.rs` — built-in palette + file match rules
 - `color.rs` — ANSI style helpers
 - `format_name.rs` — escaping + name segmentation
-- `format_meta.rs` — permissions, size, timestamp formatting
+- `format_meta.rs` — size, timestamp, octal mode formatting
 - `render.rs` — row rendering for flat and recursive modes
+
+These Rust files should live alongside the current Python files in this `dir_explorer` folder, since you plan to delete the Python implementation after parity is reached.
 
 Core data model:
 
@@ -418,19 +479,108 @@ Do not intertwine filesystem access with string rendering.
 
 ## Suggested crates
 
-Likely useful:
+It is practical to build this tool with **zero external crates**.
 
-- `clap` for CLI parsing
-- `owo-colors` or `anstyle` for ANSI styling
-- `terminal_size` or `crossterm` only if width-awareness becomes necessary
-- `humansize` or a tiny custom formatter for sizes
-- `chrono` or `time` for timestamp formatting
-- `natord` or a custom natural/version sort implementation
-- `anyhow` for CLI-level error handling
+Because the scope is intentionally narrow, the standard library already covers most needs:
 
-Possible preference:
+- directory reading: `std::fs`
+- metadata: `std::fs` + `std::os::unix::fs::MetadataExt`
+- symlink handling: `symlink_metadata()` / `read_link()`
+- argument parsing: `std::env::args()`
+- ANSI escape emission: plain strings
+- path handling: `std::path`
 
-- keep dependencies light unless a crate clearly saves time
+For this project, zero dependencies is a realistic default, not a stunt.
+
+### Strong recommendation: start with no external crates
+
+Why this is practical here:
+
+- CLI surface is small and stable
+- colors are simple ANSI sequences, not complex terminal abstractions
+- no Windows support means fewer portability abstractions are needed
+- no terminal width handling is needed
+- no external theme parsing is needed
+- long-iso is the only timestamp style, which avoids a large date-formatting surface
+
+### Where crates may still be justified
+
+#### `clap`
+
+Useful only if you want polished help text, automatic validation, and easier flag maintenance.
+
+Why you might skip it:
+
+- the flags are simple enough to parse manually
+- manual parsing keeps startup lean and avoids a large dependency tree
+
+Recommendation:
+
+- v1: parse arguments manually
+- add `clap` later only if the CLI grows substantially
+
+#### `time`
+
+Useful if you want robust local-time formatting without shelling out or writing unsafe FFI.
+
+Why it may be justified:
+
+- formatting filesystem times as local `YYYY-MM-DD HH:MM` is annoying with std alone
+- a small, focused time crate can reduce custom date code and avoid platform-specific hacks
+
+Why you might skip it:
+
+- if exact long-iso formatting can be implemented with a tiny amount of platform-specific code
+- if you are willing to keep timestamp formatting minimal at first
+
+Recommendation:
+
+- this is the one external crate most likely worth using
+
+#### Natural/version sort crate
+
+Useful if you want battle-tested version-aware ordering immediately.
+
+Why you might skip it:
+
+- a small custom comparator for ASCII-ish filenames may be enough
+- your desired sort behavior is narrower than a full locale-aware natural sort implementation
+
+Recommendation:
+
+- try a custom comparator first
+- only add a crate if edge cases become annoying
+
+#### Error handling crate such as `anyhow`
+
+Useful for ergonomic error propagation in a CLI.
+
+Why you might skip it:
+
+- the binary is small
+- `Result<T, String>` or small custom error enums are sufficient
+
+Recommendation:
+
+- not necessary for v1
+
+### Crates not needed
+
+Do **not** add crates for:
+
+- terminal sizing
+- config parsing
+- theming systems
+- cross-platform abstractions for Windows
+
+### Final crates recommendation
+
+Best default plan:
+
+- zero external crates if possible
+- optionally one time-formatting crate if local timestamp formatting is too annoying with std alone
+
+That approach best matches the project goals: fast startup, small surface area, and full control over rendering.
 
 ---
 
@@ -448,6 +598,8 @@ Build a flat non-recursive listing with:
 - long ISO time
 - human-readable sizes
 - regular file / dir / symlink / executable coloring
+- default row format: `[size] [time] [name]`
+- `-0` row format: `[name]`
 
 This phase should be enough to replace the shell wrapper for daily use.
 
@@ -470,7 +622,7 @@ Add:
 - broken symlink rendering
 - `--reverse`
 - `-t`
-- `--classic-long`
+- `-l` with octal permissions, link count, owner, group, size, time, and name
 - robust escaping behavior
 
 ### Phase 4: recursive tree mode
@@ -485,9 +637,7 @@ Add:
 
 Add optional:
 
-- external config file
-- additional time styles
-- width-aware truncation
+- internal cleanup / refactoring after parity
 - icons only if explicitly enabled
 
 ---
@@ -525,7 +675,8 @@ Test categories:
 
 - human-readable vs raw bytes
 - long-iso timestamp
-- classic-long mode
+- `-l` mode
+- `-0` mode
 - dim metadata + colored filename
 
 ### Weird names
@@ -539,21 +690,19 @@ Test categories:
 
 ---
 
-## Open decisions
+## Settled decisions
 
-These are the only design questions that still seem worth deciding before implementation:
+These points are now decided:
 
-1. Should default compact mode show octal permissions, symbolic permissions, or neither?
-2. Should recursive tree mode use the same long-row format, or a more compact tree-specific row?
-3. Should symlink display include `name -> target` in default mode?
-4. Should color config remain hard-coded initially, or move immediately to a file format like TOML / YAML?
-
-My recommendation:
-
-1. compact mode shows a minimal type/permission indicator, not full symbolic permissions
-2. recursive mode keeps the same long-row format in v1
-3. symlinks should show `-> target`
-4. keep colors built-in first, externalize later
+1. default mode shows no file type / permission summary
+2. `-l` is the detailed mode and uses octal permissions without a leading `0`
+3. `-0` is the minimal mode and omits size and timestamp
+4. timestamp style is always long-iso; no `--time-style`
+5. there is no arrow marker
+6. recursive mode does not recurse into symlink targets
+7. recursive mode can still show long metadata when `-l` is enabled
+8. external theme config is out of scope
+9. no Windows support
 
 ---
 
@@ -564,9 +713,9 @@ Build the Rust tool as a **direct structured renderer**, not as an `ls` emulator
 The main thing to preserve from the current Python implementation is:
 
 - opinionated defaults
-- dim metadata
+- dim metadata when metadata is shown
 - custom extension/name coloring
-- low-noise long layout
+- low-noise default layout
 
 The main thing to improve over the Python version is:
 
@@ -575,7 +724,8 @@ The main thing to improve over the Python version is:
 - better special-file support
 - tree-style recursion
 - predictable escaping
+- explicit support for `-l` and `-0`
 
 If done well, this should end up feeling like:
 
-> a fast, opinionated, readable Unix directory lister with extension-aware coloring — not just “another `ls` clone”.
+> a fast, opinionated, readable Unix directory lister with extension-aware coloring — quieter than `ls -l`, but still able to become detailed on demand.
