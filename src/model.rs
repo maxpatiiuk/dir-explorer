@@ -72,6 +72,7 @@ pub struct Entry {
     pub path: PathBuf,
     pub name: String,
     pub kind: FileKind,
+    pub groups_with_directories: bool,
     pub mode: u32,
     pub nlink: u64,
     pub uid: u32,

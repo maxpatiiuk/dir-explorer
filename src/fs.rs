@@ -3,7 +3,7 @@ use std::fs;
 use std::os::unix::fs::{FileTypeExt, MetadataExt};
 use std::path::Path;
 
-use crate::model::{Entry, FileKind, Options};
+use crate::model::{Entry, FileKind, Options, ViewMode};
 
 pub fn collect_entries(path: &Path, options: &Options) -> Result<Vec<Entry>, String> {
     let read_dir = fs::read_dir(path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -38,8 +38,18 @@ pub fn collect_entry_for_path(path: &Path, display_name: Option<String>) -> Resu
         None
     };
 
-    if kind == FileKind::Symlink && fs::metadata(path).is_err() {
-        kind = FileKind::BrokenSymlink;
+    let mut groups_with_directories = kind == FileKind::Directory;
+    if kind == FileKind::Symlink {
+        match fs::metadata(path) {
+            Ok(target_meta) => {
+                if target_meta.is_dir() {
+                    groups_with_directories = true;
+                }
+            }
+            Err(_) => {
+                kind = FileKind::BrokenSymlink;
+            }
+        }
     }
 
     let name = match display_name {
@@ -54,6 +64,7 @@ pub fn collect_entry_for_path(path: &Path, display_name: Option<String>) -> Resu
         path: path.to_path_buf(),
         name,
         kind,
+        groups_with_directories,
         mode: symlink_meta.mode(),
         nlink: symlink_meta.nlink(),
         uid: symlink_meta.uid(),
@@ -66,6 +77,9 @@ pub fn collect_entry_for_path(path: &Path, display_name: Option<String>) -> Resu
 
 fn should_skip(name: &OsStr, options: &Options) -> bool {
     let name = name.to_string_lossy();
+    if options.view_mode != ViewMode::Long && name == ".DS_Store" {
+        return true;
+    }
     if options.show_all {
         return false;
     }
@@ -119,7 +133,7 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use crate::fs::collect_entries;
-    use crate::model::Options;
+    use crate::model::{Options, ViewMode};
 
     fn make_temp_dir() -> PathBuf {
         let seed = SystemTime::now()
@@ -143,6 +157,37 @@ mod tests {
 
         assert!(names.iter().any(|name| name == ".hidden"));
         assert!(names.iter().any(|name| name == "visible"));
+
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn ds_store_hidden_in_non_long_mode() {
+        let dir = make_temp_dir();
+        fs::write(dir.join(".DS_Store"), b"x").unwrap();
+        fs::write(dir.join("visible"), b"y").unwrap();
+
+        let options = Options::default();
+        let entries = collect_entries(&dir, &options).unwrap();
+        let names: Vec<String> = entries.into_iter().map(|entry| entry.name).collect();
+
+        assert!(!names.iter().any(|name| name == ".DS_Store"));
+        assert!(names.iter().any(|name| name == "visible"));
+
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn ds_store_visible_in_long_mode() {
+        let dir = make_temp_dir();
+        fs::write(dir.join(".DS_Store"), b"x").unwrap();
+
+        let mut options = Options::default();
+        options.view_mode = ViewMode::Long;
+        let entries = collect_entries(&dir, &options).unwrap();
+        let names: Vec<String> = entries.into_iter().map(|entry| entry.name).collect();
+
+        assert!(names.iter().any(|name| name == ".DS_Store"));
 
         fs::remove_dir_all(dir).unwrap();
     }

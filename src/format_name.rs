@@ -1,4 +1,7 @@
-use crate::color::{color_for_kind, RESET};
+use std::env;
+use std::path::{Path, PathBuf};
+
+use crate::color::{color_for_kind, DIM, RESET};
 use crate::model::{Entry, FileKind};
 use crate::theme::{default_theme, resolve_color_code};
 
@@ -19,27 +22,65 @@ pub fn escaped_name(raw: &str) -> String {
 
 pub fn colorized_name(entry: &Entry, use_color: bool) -> String {
     let escaped = escaped_name(&entry.name);
-    let display = if let Some(target) = &entry.symlink_target {
-        format!("{escaped} -> {}", escaped_name(&target.to_string_lossy()))
-    } else {
-        escaped
-    };
+    let target = entry
+        .symlink_target
+        .as_ref()
+        .map(|target| escaped_name(&format_target_path(target)));
 
     if !use_color {
-        return display;
+        return if let Some(target) = target {
+            format!("{escaped} -> {target}")
+        } else {
+            escaped
+        };
+    }
+
+    if let Some(target) = target {
+        let name = match entry.kind {
+            FileKind::Symlink | FileKind::BrokenSymlink => colorize_regular_file(&escaped),
+            _ => {
+                let color = color_for_kind(entry.kind);
+                if color.is_empty() {
+                    escaped
+                } else {
+                    format!("{color}{escaped}{RESET}")
+                }
+            }
+        };
+        return format!("{name} {DIM}-> {target}{RESET}");
     }
 
     match entry.kind {
-        FileKind::Regular => colorize_regular_file(&display),
+        FileKind::Regular => colorize_regular_file(&escaped),
         other => {
             let color = color_for_kind(other);
             if color.is_empty() {
-                display
+                escaped
             } else {
-                format!("{color}{display}{RESET}")
+                format!("{color}{escaped}{RESET}")
             }
         }
     }
+}
+
+fn format_target_path(path: &Path) -> String {
+    let home = env::var_os("HOME").map(PathBuf::from);
+    format_target_path_with_home(path, home.as_deref())
+}
+
+fn format_target_path_with_home(path: &Path, home: Option<&Path>) -> String {
+    if let Some(home) = home {
+        if path == home {
+            return "~".to_string();
+        }
+        if let Ok(rest) = path.strip_prefix(home) {
+            if rest.as_os_str().is_empty() {
+                return "~".to_string();
+            }
+            return format!("~/{}", rest.to_string_lossy());
+        }
+    }
+    path.to_string_lossy().into_owned()
 }
 
 fn colorize_regular_file(name: &str) -> String {
@@ -81,10 +122,65 @@ fn colorize_regular_file(name: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::escaped_name;
+    use std::path::{Path, PathBuf};
+    use std::time::UNIX_EPOCH;
+
+    use super::{colorized_name, escaped_name, format_target_path_with_home};
+    use crate::model::{Entry, FileKind};
 
     #[test]
     fn escapes_control_characters() {
         assert_eq!(escaped_name("a\n"), "a\\x0a");
+    }
+
+    #[test]
+    fn shortens_home_in_symlink_target() {
+        let target = Path::new("/Users/max/Documents/file.txt");
+        let home = Path::new("/Users/max");
+        assert_eq!(
+            format_target_path_with_home(target, Some(home)),
+            "~/Documents/file.txt"
+        );
+    }
+
+    #[test]
+    fn dims_symlink_arrow_and_target() {
+        let entry = Entry {
+            path: PathBuf::from("link"),
+            name: "link".to_string(),
+            kind: FileKind::Symlink,
+            groups_with_directories: false,
+            mode: 0,
+            nlink: 1,
+            uid: 0,
+            gid: 0,
+            size: 0,
+            modified: UNIX_EPOCH,
+            symlink_target: Some(PathBuf::from("/tmp/target")),
+        };
+
+        let rendered = colorized_name(&entry, true);
+        assert!(rendered.contains("\x1b[2m-> /tmp/target\x1b[0m"));
+    }
+
+    #[test]
+    fn symlink_uses_regular_file_coloring_rules() {
+        let entry = Entry {
+            path: PathBuf::from("notes.md"),
+            name: "notes.md".to_string(),
+            kind: FileKind::Symlink,
+            groups_with_directories: false,
+            mode: 0,
+            nlink: 1,
+            uid: 0,
+            gid: 0,
+            size: 0,
+            modified: UNIX_EPOCH,
+            symlink_target: Some(PathBuf::from("/tmp/target")),
+        };
+
+        let rendered = colorized_name(&entry, true);
+        assert!(!rendered.contains("\x1b[35m"));
+        assert!(rendered.contains("\x1b[38;5;200m"));
     }
 }

@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::{env, fs};
 
 use crate::color::{DIM, RESET};
 use crate::format_meta::{
@@ -44,7 +45,13 @@ pub fn render_paths(options: &Options, use_color: bool) -> Result<Vec<String>, S
             render_tree(path, "", true, options, use_color, &mut out)?;
         } else {
             let mut entries = collect_entries(path, options)?;
+            let hidden_count = apply_home_directory_overrides(path, options, &mut entries);
             sort_entries(&mut entries, options.sort_mode, options.reverse);
+
+            if should_show_home_hidden_count(path, options) {
+                out.push(format!("({hidden_count} hidden)"));
+            }
+
             for entry in entries {
                 out.push(render_entry(&entry, options, use_color));
             }
@@ -128,14 +135,102 @@ fn render_entry(entry: &Entry, options: &Options, use_color: bool) -> String {
     }
 }
 
+fn should_show_home_hidden_count(path: &Path, options: &Options) -> bool {
+    options.view_mode != ViewMode::Long && is_home_directory(path)
+}
+
+fn apply_home_directory_overrides(
+    path: &Path,
+    options: &Options,
+    entries: &mut Vec<Entry>,
+) -> usize {
+    if !should_show_home_hidden_count(path, options) {
+        return 0;
+    }
+
+    let mut filtered = Vec::with_capacity(entries.len());
+    let mut hidden_count = 0usize;
+
+    for mut entry in entries.drain(..) {
+        // Some home dir files can't be moved.
+        // Some apps don't respect XDG dirs and clutter the home dir
+        // Hide the directories I almost never need to open to reduce noise
+        match entry.name.as_str() {
+            ".CFUserTextEncoding"
+            | ".Trash"
+            | ".android"
+            | ".bash_history"
+            | ".boto"
+            | ".cargo"
+            | ".claude"
+            | ".claude.json"
+            | ".condarc"
+            | ".copilot"
+            | ".docker"
+            | ".gemini"
+            | ".gitconfig"
+            | ".gnupg"
+            | ".gsutil"
+            | ".lesshst"
+            | ".node_repl_history"
+            | ".npm"
+            | ".npmrc"
+            | ".redhat"
+            | ".rustup"
+            | ".screenrc"
+            | ".ssh"
+            | ".storybook"
+            | ".vim"
+            | ".viminfo"
+            | ".vimrc"
+            | ".vscode"
+            | ".yarn"
+            | ".zsh_history"
+            | ".zsh_sessions"
+            | ".zshenv"
+            | "Desktop"
+            | "Downloads"
+            | "Movies"
+            | "Music"
+            | "Pictures"
+            | "Public" => {
+                hidden_count += 1;
+                continue;
+            }
+            ".DS_Store" => {
+                continue;
+            }
+            "d" if entry.kind == FileKind::Symlink && entry.groups_with_directories => {
+                entry.kind = FileKind::Directory;
+                entry.symlink_target = None;
+            }
+            _ => {}
+        }
+        filtered.push(entry);
+    }
+
+    *entries = filtered;
+    hidden_count
+}
+
+fn is_home_directory(path: &Path) -> bool {
+    let Some(home_os) = env::var_os("HOME") else {
+        return false;
+    };
+    let home_path = std::path::PathBuf::from(home_os);
+    let resolved_input = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let resolved_home = fs::canonicalize(&home_path).unwrap_or(home_path);
+    resolved_input == resolved_home
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use crate::model::{Options, SortMode, ViewMode};
-    use crate::render::render_paths;
+    use crate::model::{Entry, FileKind, Options, SortMode, ViewMode};
+    use crate::render::{apply_home_directory_overrides, render_paths};
 
     fn make_temp_dir() -> PathBuf {
         let seed = SystemTime::now()
@@ -219,5 +314,67 @@ mod tests {
         assert!(line.starts_with("         "));
 
         fs::remove_dir_all(root).unwrap();
+    }
+
+    fn entry(name: &str, kind: FileKind) -> Entry {
+        Entry {
+            path: PathBuf::from(name),
+            name: name.to_string(),
+            kind,
+            groups_with_directories: kind == FileKind::Directory,
+            mode: 0,
+            nlink: 1,
+            uid: 0,
+            gid: 0,
+            size: 0,
+            modified: UNIX_EPOCH,
+            symlink_target: None,
+        }
+    }
+
+    #[test]
+    fn home_overrides_hide_expected_noise_and_count() {
+        let mut entries = vec![
+            entry(".CFUserTextEncoding", FileKind::Regular),
+            entry("Music", FileKind::Directory),
+            entry("Desktop", FileKind::Directory),
+            entry(".DS_Store", FileKind::Regular),
+            entry("keep", FileKind::Regular),
+        ];
+
+        let mut options = Options::default();
+        options.view_mode = ViewMode::Default;
+
+        let count = apply_home_directory_overrides(Path::new("/tmp"), &options, &mut entries);
+        assert_eq!(count, 0);
+
+        let count = apply_home_directory_overrides(
+            Path::new(&std::env::var("HOME").unwrap()),
+            &options,
+            &mut entries,
+        );
+        assert_eq!(count, 3);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].name, "keep");
+    }
+
+    #[test]
+    fn home_overrides_render_d_symlink_as_directory() {
+        let mut d = entry("d", FileKind::Symlink);
+        d.groups_with_directories = true;
+        d.symlink_target = Some(PathBuf::from("/tmp/somewhere"));
+        let mut entries = vec![d];
+
+        let mut options = Options::default();
+        options.view_mode = ViewMode::Default;
+
+        let _ = apply_home_directory_overrides(
+            Path::new(&std::env::var("HOME").unwrap()),
+            &options,
+            &mut entries,
+        );
+
+        assert_eq!(entries[0].kind, FileKind::Directory);
+        assert!(entries[0].symlink_target.is_none());
     }
 }
