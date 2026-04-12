@@ -590,16 +590,16 @@ That approach best matches the project goals: fast startup, small surface area, 
 
 Build a flat non-recursive listing with:
 
-- path argument handling
-- hidden file filtering (`-A` / `-a`)
-- metadata collection
-- version sort
-- directories first
-- long ISO time
-- human-readable sizes
-- regular file / dir / symlink / executable coloring
-- default row format: `[size] [time] [name]`
-- `-0` row format: `[name]`
+- [x] path argument handling
+- [x] hidden file filtering (`-A` / `-a`)
+- [x] metadata collection
+- [x] version sort
+- [x] directories first
+- [x] long ISO time
+- [x] human-readable sizes
+- [x] regular file / dir / symlink / executable coloring
+- [x] default row format: `[size] [time] [name]`
+- [x] `-0` row format: `[name]`
 
 This phase should be enough to replace the shell wrapper for daily use.
 
@@ -607,10 +607,10 @@ This phase should be enough to replace the shell wrapper for daily use.
 
 Port:
 
-- exact filename rules
-- exact extension rules
-- extension-ending rules
-- dimmed metadata rendering
+- [x] exact filename rules
+- [x] exact extension rules
+- [x] extension-ending rules
+- [x] dimmed metadata rendering
 
 At this point the Rust output should feel like the current Python tool, not just like another `ls` clone.
 
@@ -618,27 +618,27 @@ At this point the Rust output should feel like the current Python tool, not just
 
 Add:
 
-- sockets / pipes / devices
-- broken symlink rendering
-- `--reverse`
-- `-t`
-- `-l` with octal permissions, link count, owner, group, size, time, and name
-- robust escaping behavior
+- [x] sockets / pipes / devices
+- [x] broken symlink rendering
+- [x] `--reverse`
+- [x] `-t`
+- [x] `-l` with octal permissions, link count, owner, group, size, time, and name
+- [x] robust escaping behavior
 
 ### Phase 4: recursive tree mode
 
 Add:
 
-- `-R` tree rendering
-- depth-first traversal
-- loop protection if following symlinks is ever added
+- [x] `-R` tree rendering
+- [x] depth-first traversal
+- [x] loop protection if following symlinks is ever added
 
 ### Phase 5: polish
 
 Add optional:
 
-- internal cleanup / refactoring after parity
-- icons only if explicitly enabled
+- [ ] internal cleanup / refactoring after parity
+- [ ] icons only if explicitly enabled
 
 ---
 
@@ -694,15 +694,15 @@ Test categories:
 
 These points are now decided:
 
-1. default mode shows no file type / permission summary
-2. `-l` is the detailed mode and uses octal permissions without a leading `0`
-3. `-0` is the minimal mode and omits size and timestamp
-4. timestamp style is always long-iso; no `--time-style`
-5. there is no arrow marker
-6. recursive mode does not recurse into symlink targets
-7. recursive mode can still show long metadata when `-l` is enabled
-8. external theme config is out of scope
-9. no Windows support
+- [x] default mode shows no file type / permission summary
+- [x] `-l` is the detailed mode and uses octal permissions without a leading `0`
+- [x] `-0` is the minimal mode and omits size and timestamp
+- [x] timestamp style is always long-iso; no `--time-style`
+- [x] there is no arrow marker
+- [x] recursive mode does not recurse into symlink targets
+- [x] recursive mode can still show long metadata when `-l` is enabled
+- [x] external theme config is out of scope
+- [x] no Windows support
 
 ---
 
