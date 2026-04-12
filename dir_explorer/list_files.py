@@ -19,7 +19,7 @@ ls = (
     "ls "
     "--color "
     "--group-directories-first "
-    "-ahl "
+    "-Ahl "
     '--time-style=long-iso '
     "--sort=version"
 )
