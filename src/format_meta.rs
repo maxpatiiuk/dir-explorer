@@ -9,7 +9,7 @@ pub fn format_size(size: u64, human: bool) -> String {
         return size.to_string();
     }
 
-    const UNITS: [&str; 5] = ["B", "K", "M", "G", "T"];
+    const UNITS: [&str; 5] = ["", "k", "m", "g", "t"];
     let mut value = size as f64;
     let mut index = 0;
     while value >= 1024.0 && index < UNITS.len() - 1 {
@@ -18,7 +18,7 @@ pub fn format_size(size: u64, human: bool) -> String {
     }
 
     if index == 0 {
-        format!("{}{}", value as u64, UNITS[index])
+        format!("{}", value as u64)
     } else {
         format!("{value:.1}{}", UNITS[index])
     }
@@ -72,8 +72,8 @@ mod tests {
 
     #[test]
     fn human_size() {
-        assert_eq!(format_size(123, true), "123B");
-        assert_eq!(format_size(2048, true), "2.0K");
+        assert_eq!(format_size(123, true), "123");
+        assert_eq!(format_size(2048, true), "2.0k");
     }
 
     #[test]

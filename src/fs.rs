@@ -18,42 +18,50 @@ pub fn collect_entries(path: &Path, options: &Options) -> Result<Vec<Entry>, Str
         }
 
         let full_path = dir_entry.path();
-        let symlink_meta = fs::symlink_metadata(&full_path)
-            .map_err(|e| format!("{}: {e}", full_path.display()))?;
-
-        let mut kind = classify_kind(&symlink_meta);
-        let symlink_target = if kind == FileKind::Symlink {
-            Some(
-                fs::read_link(&full_path)
-                    .map_err(|e| format!("{}: {e}", full_path.display()))?,
-            )
-        } else {
-            None
-        };
-
-        if kind == FileKind::Symlink && fs::metadata(&full_path).is_err() {
-            kind = FileKind::BrokenSymlink;
-        }
-
-        let name = name_os.to_string_lossy().into_owned();
-
-        entries.push(Entry {
-            path: full_path,
-            name,
-            kind,
-            mode: symlink_meta.mode(),
-            nlink: symlink_meta.nlink(),
-            uid: symlink_meta.uid(),
-            gid: symlink_meta.gid(),
-            size: symlink_meta.size(),
-            modified: symlink_meta
-                .modified()
-                .unwrap_or(std::time::UNIX_EPOCH),
-            symlink_target,
-        });
+        entries.push(collect_entry_for_path(
+            &full_path,
+            Some(name_os.to_string_lossy().into_owned()),
+        )?);
     }
 
     Ok(entries)
+}
+
+pub fn collect_entry_for_path(path: &Path, display_name: Option<String>) -> Result<Entry, String> {
+    let symlink_meta =
+        fs::symlink_metadata(path).map_err(|e| format!("{}: {e}", path.display()))?;
+
+    let mut kind = classify_kind(&symlink_meta);
+    let symlink_target = if kind == FileKind::Symlink {
+        Some(fs::read_link(path).map_err(|e| format!("{}: {e}", path.display()))?)
+    } else {
+        None
+    };
+
+    if kind == FileKind::Symlink && fs::metadata(path).is_err() {
+        kind = FileKind::BrokenSymlink;
+    }
+
+    let name = match display_name {
+        Some(name) => name,
+        None => path
+            .file_name()
+            .map(|value| value.to_string_lossy().into_owned())
+            .unwrap_or_else(|| path.to_string_lossy().into_owned()),
+    };
+
+    Ok(Entry {
+        path: path.to_path_buf(),
+        name,
+        kind,
+        mode: symlink_meta.mode(),
+        nlink: symlink_meta.nlink(),
+        uid: symlink_meta.uid(),
+        gid: symlink_meta.gid(),
+        size: symlink_meta.size(),
+        modified: symlink_meta.modified().unwrap_or(std::time::UNIX_EPOCH),
+        symlink_target,
+    })
 }
 
 fn should_skip(name: &OsStr, options: &Options) -> bool {
