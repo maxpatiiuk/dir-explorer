@@ -26,7 +26,7 @@ Long view:
 
 ```log
 > l -l
- 755 maxpatiiuk staff 2026-04-12 14:27 src
+ 755 maxpatiiuk staff      2026-04-12 14:27 src
  644 maxpatiiuk staff 4.7k 2026-04-12 16:24 cli.rs
 ```
 
