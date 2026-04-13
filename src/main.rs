@@ -3,6 +3,7 @@ mod color;
 mod format_meta;
 mod format_name;
 mod fs;
+mod home_overrides;
 mod model;
 mod render;
 mod sort;
@@ -24,8 +25,6 @@ fn main() -> ExitCode {
                 return ExitCode::SUCCESS;
             }
             eprintln!("{message}");
-            eprintln!();
-            eprintln!("{}", help_text());
             return ExitCode::from(2);
         }
     };

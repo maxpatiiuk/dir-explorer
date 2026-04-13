@@ -1,15 +1,45 @@
 # dir-explorer
 
-Fast, opinionated `ls`-style directory listing written in Rust.
+Clean terminal directory listing.
 
-## Status
+Better defaults than `ls`. Much cleaner than `eza`. Faster than either of them.
 
-The Rust rewrite is the active implementation.
+Features:
 
-- no `ls`/`gls` subprocess wrapping
-- custom extension/name coloring preserved from the Python version
-- tree recursion mode and long metadata mode supported
-- no icons by default and no icon rendering path in the current code
+- colorized output based on file name or extension
+- directories grouped first
+- natural sorting
+- long ISO timestamps
+
+## What it looks like
+
+Efficient default view:
+
+```log
+> l
+   4.7k 2026-04-12 16:24 cli.rs
+    964 2026-04-12 14:08 color.rs
+        2026-04-12 14:27 src
+```
+
+Long view:
+
+```log
+> l -l
+ 755 maxpatiiuk staff 2026-04-12 14:27 src
+ 644 maxpatiiuk staff 4.7k 2026-04-12 16:24 cli.rs
+```
+
+Recursive view:
+
+```log
+> l -R
+        2026-04-12 14:27 src
+   4.7k 2026-04-12 16:24 │   ├── cli.rs
+    964 2026-04-12 14:08 │   ├── color.rs
+```
+
+> Recursive view skips common black-hole directories such as `.git` and `node_modules`.
 
 ## Build
 
@@ -23,38 +53,45 @@ Run directly:
 cargo run -- [flags] [paths...]
 ```
 
-## CLI
+## Install
 
-Defaults:
+Suggested `~/.zshrc` setup:
 
-- `-A` semantics (almost-all)
-- sort by version
-- group directories first
-- long-iso timestamps only
-- default row: `size time name`
+```sh
+alias l="~/g/dir-explorer/target/release/dir-explorer"
+alias ll="l -l"
+alias l0="l -0"
+alias lr="l -R"
+alias lt="l -t"
+alias lS="l --sort=size"
 
-Flags:
+function cl() {
+  local dir="${*:-$HOME}"
+  builtin cd "$dir" && l
+}
+compdef cl=cd
+```
 
-- `-a`: include all entries
-- `-A`: include almost all entries
-- `-l`: detailed mode (`mode links owner group size time name`)
-- `-0`: minimal mode (name only)
-- `-H`: raw bytes for sizes
-- `-r` / `--reverse`: reverse final sort order
-- `-R` / `--recursive`: recursive tree listing (does not recurse into symlink targets)
-- `-t`: sort by modified time
-- `--sort=version|name|time|size|extension`
-- `--color=always|auto|never`
+## CLI help
 
-## Notes on behavior
+For the current defaults and full flag list, see [CLI_HELP.txt](./CLI_HELP.txt).
 
-- `-l` uses octal permissions without a leading `0`.
-- `--time-style` is intentionally not supported; output is always long-iso.
-- External theme config is intentionally not supported.
+Or run `l -h`.
 
-## Legacy Python implementation
+## Customization
 
-The pre-rewrite Python implementation is preserved at tag `v1`.
+To tweak colors and built-in filename or directory rules, edit [src/theme.rs](src/theme.rs).
 
-- tag: `v1`
-- commit: `dcb4cea`
+To tweak home-directory-specific hiding and gray-out behavior, edit [src/home_overrides.rs](src/home_overrides.rs).
+
+That file defines:
+
+- color names and ANSI mappings
+- file extension color rules
+- exact filename color rules
+- directory color rules
+- black-hole directories skipped by recursive view
+
+## Prior implementation
+
+The older Python-based version is preserved as tag `v1` (`dcb4cea`). Port from Python to Rust was LLM-assisted.

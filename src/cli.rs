@@ -89,26 +89,7 @@ where
 }
 
 pub fn help_text() -> String {
-    [
-        "Usage: l [options] [paths...]",
-        "",
-        "Defaults: -A, --sort=version, long-iso time, dirs first",
-        "",
-        "Flags:",
-        "  -a                show all entries including . and ..",
-        "  -A                show almost all entries (default)",
-        "  -l                detailed mode: mode owner group size time name",
-        "  -0                compact mode: only names",
-        "  -H                show raw bytes instead of human-readable sizes",
-        "  -r, --reverse     reverse final sort order",
-        "  -R, --recursive   recursive tree output (does not recurse into symlinks)",
-        "  -t                sort by modified time",
-        "      --sort=...    version|name|time|size|extension",
-        "      --color=...   always|auto|never",
-        "      --            end options; treat remaining args as paths",
-        "  -h, --help       show this help",
-    ]
-    .join("\n")
+    include_str!("../CLI_HELP.txt").trim_end().to_string()
 }
 
 #[cfg(test)]

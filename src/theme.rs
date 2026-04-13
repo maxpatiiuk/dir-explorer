@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 
+/// Directory names that are treated as noisy by default:
+/// - colored gray in normal listings
+/// - not expanded by `-R` unless traversal starts inside them
 pub const BLACK_HOLE_DIRECTORY_NAMES: &[&str] = &[
     ".git",
     "node_modules",
@@ -20,11 +23,24 @@ pub fn is_black_hole_dir_name(name: &str) -> bool {
     BLACK_HOLE_DIRECTORY_NAMES.contains(&name)
 }
 
+/// Configure colors for file names, extensions, and directory names.
 pub struct Theme {
+    /// Define color aliases
     pub color_definitions: HashMap<&'static str, &'static str>,
+
+    /// Color code file extensions
     pub known_file_extensions: HashMap<&'static str, &'static str>,
+
+    /// Color code file extension endings.
+    /// Example: `"ignore"` matches `.gitignore`, `.dockerignore`, etc.
     pub known_file_extension_endings: HashMap<&'static str, &'static str>,
+
+    /// Full basename matches
     pub known_file_names: HashMap<&'static str, &'static str>,
+
+    /// Exact directory-name matches.
+    ///
+    /// Used for both emphasis (`src`) and de-emphasis (`.git`, `node_modules`).
     pub known_directory_names: HashMap<&'static str, &'static str>,
 }
 

@@ -98,7 +98,26 @@ fn format_target_path_with_home(path: &Path, home: Option<&Path>) -> String {
     path.to_string_lossy().into_owned()
 }
 
+fn env_style_color_key<'a>(theme: &'a crate::theme::Theme, name: &str) -> Option<&'a str> {
+    if name == ".env" || name.starts_with(".env.") {
+        if name == ".env.sample" || name.starts_with(".env.sample.") {
+            None
+        } else {
+            theme.known_file_extensions.get("env").copied()
+        }
+    } else {
+        None
+    }
+}
+
 fn colorize_regular_file(theme: &crate::theme::Theme, name: &str) -> String {
+    if let Some(key) = env_style_color_key(theme, name) {
+        let color = resolve_color_code(theme, key);
+        if !color.is_empty() {
+            return format!("{color}{name}{RESET}");
+        }
+    }
+
     if let Some(color_key) = theme.known_file_names.get(name) {
         let color = resolve_color_code(&theme, color_key);
         if !color.is_empty() {
@@ -167,6 +186,22 @@ mod tests {
 
     use super::{colorized_name, escaped_name, format_target_path_with_home};
     use crate::model::{Entry, FileKind};
+
+    fn regular_file(name: &str) -> Entry {
+        Entry {
+            path: PathBuf::from(name),
+            name: name.to_string(),
+            kind: FileKind::Regular,
+            groups_with_directories: false,
+            color_override: None,
+            mode: 0,
+            uid: 0,
+            gid: 0,
+            size: 0,
+            modified: UNIX_EPOCH,
+            symlink_target: None,
+        }
+    }
 
     #[test]
     fn escapes_control_characters() {
@@ -263,5 +298,23 @@ mod tests {
 
         let rendered = colorized_name(&entry, true);
         assert!(rendered.contains("\x1b[38;5;81m"));
+    }
+
+    #[test]
+    fn env_file_family_uses_env_coloring() {
+        let rendered = colorized_name(&regular_file(".env.local"), true);
+        assert!(rendered.contains("\x1b[38;5;13m.env.local\x1b[0m"));
+    }
+
+    #[test]
+    fn base_env_file_uses_env_coloring() {
+        let rendered = colorized_name(&regular_file(".env"), true);
+        assert!(rendered.contains("\x1b[38;5;13m.env\x1b[0m"));
+    }
+
+    #[test]
+    fn env_sample_is_not_forced_to_env_coloring() {
+        let rendered = colorized_name(&regular_file(".env.sample"), true);
+        assert!(!rendered.contains("\x1b[38;5;13m.env.sample\x1b[0m"));
     }
 }
