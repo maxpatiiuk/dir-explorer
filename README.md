@@ -80,9 +80,9 @@ Or run `l -h`.
 
 ## Customization
 
-To tweak colors and built-in filename or directory rules, edit [src/theme.rs](src/theme.rs).
+To tweak colors and built-in filename or directory rules, edit [src/theme.rs](./src/theme.rs).
 
-To tweak home-directory-specific hiding and gray-out behavior, edit [src/home_overrides.rs](src/home_overrides.rs).
+To tweak home-directory-specific hiding and gray-out behavior, edit [src/home_overrides.rs](./src/home_overrides.rs).
 
 That file defines:
 
@@ -94,4 +94,4 @@ That file defines:
 
 ## Prior implementation
 
-The older Python-based version is preserved as tag `v1` (`dcb4cea`). Port from Python to Rust was LLM-assisted.
+The older Python-based version is preserved as [python branch](https://github.com/maxpatiiuk/dir-explorer/tree/main2). Port from Python to Rust was LLM-assisted.
