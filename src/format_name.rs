@@ -125,6 +125,17 @@ fn colorize_regular_file(theme: &crate::theme::Theme, name: &str) -> String {
         }
     }
 
+    if let Some((_, key)) = theme
+        .known_file_name_endings
+        .iter()
+        .find(|(ending, _)| name.ends_with(**ending))
+    {
+        let color = resolve_color_code(theme, key);
+        if !color.is_empty() {
+            return format!("{color}{name}{RESET}");
+        }
+    }
+
     let (base, ext) = match name.rsplit_once('.') {
         Some(parts) => parts,
         None => return name.to_string(),
@@ -257,6 +268,15 @@ mod tests {
         let rendered = colorized_name(&entry, true);
         assert!(!rendered.contains("\x1b[35m"));
         assert!(rendered.contains("\x1b[38;5;200m"));
+    }
+
+    #[test]
+    fn config_js_and_ts_suffixes_are_red() {
+        let js = colorized_name(&regular_file("eslint.config.js"), true);
+        let ts = colorized_name(&regular_file("vite.config.ts"), true);
+
+        assert!(js.starts_with("\x1b[38;5;1m"));
+        assert!(ts.starts_with("\x1b[38;5;1m"));
     }
 
     #[test]

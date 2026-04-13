@@ -8,14 +8,19 @@ pub const BLACK_HOLE_DIRECTORY_NAMES: &[&str] = &[
     "node_modules",
     "venv",
     ".venv",
+    ".turbo",
+    ".idea",
+    ".vscode",
     "target",
     "dist",
     "build",
-    "__pycache__",
-    ".mypy_cache",
-    ".pytest_cache",
+    ".screenshots",
+    "www",
+    "coverage",
+    "storybook-static",
+    "storybook-static-external",
+    "playwright-report",
     ".next",
-    ".nuxt",
     ".cache",
 ];
 
@@ -37,6 +42,10 @@ pub struct Theme {
 
     /// Full basename matches
     pub known_file_names: HashMap<&'static str, &'static str>,
+
+    /// Full filename suffix matches.
+    /// Example: `".config.js"` matches `webpack.config.js`, `vite.config.js`, etc.
+    pub known_file_name_endings: HashMap<&'static str, &'static str>,
 
     /// Exact directory-name matches.
     ///
@@ -96,14 +105,8 @@ pub fn default_theme() -> Theme {
     known_file_extensions.insert("ini", "purple");
     known_file_extensions.insert("properties", "purple");
     known_file_extensions.insert("config", "purple");
-    known_file_extensions.insert("gitignore", "purple");
-    known_file_extensions.insert("npmignore", "purple");
-    known_file_extensions.insert("dockerignore", "purple");
-    known_file_extensions.insert("stylelintignore", "purple");
-    known_file_extensions.insert("editorconfig", "purple");
+    known_file_extensions.insert("editorconfig", "dirty-purple");
     known_file_extensions.insert("lfsconfig", "purple");
-    known_file_extensions.insert("prettierignore", "purple");
-    known_file_extensions.insert("t9nignore", "purple");
 
     // c-like
     known_file_extensions.insert("asm", "yellow");
@@ -297,10 +300,10 @@ pub fn default_theme() -> Theme {
     known_file_names.insert("docker-compose.yml", "red");
     known_file_names.insert(".pre-commit-config.yaml", "red");
     known_file_names.insert(".pre-commit-hooks.yaml", "red");
-    known_file_names.insert("webpack.config.js", "red");
     known_file_names.insert("package.json", "red");
+    known_file_names.insert("pnpm-workspace.yaml", "red");
     known_file_names.insert(".browserlistrc", "red");
-    known_file_names.insert("eslint.config.js", "red");
+    known_file_names.insert("turbo.json", "red");
     known_file_names.insert(".eslintignore", "red");
     known_file_names.insert(".eslintrc.js", "red");
     known_file_names.insert(".babelrc", "red");
@@ -316,6 +319,10 @@ pub fn default_theme() -> Theme {
     known_file_names.insert("post-merge", "red");
     known_file_names.insert("pre-commit", "red");
     known_file_names.insert("pre-push", "red");
+
+    let mut known_file_name_endings = HashMap::new();
+    known_file_name_endings.insert(".config.js", "red");
+    known_file_name_endings.insert(".config.ts", "red");
 
     let mut known_directory_names = HashMap::new();
     // unimportant / noisy
@@ -333,6 +340,7 @@ pub fn default_theme() -> Theme {
         known_file_extensions,
         known_file_extension_endings,
         known_file_names,
+        known_file_name_endings,
         known_directory_names,
     }
 }
